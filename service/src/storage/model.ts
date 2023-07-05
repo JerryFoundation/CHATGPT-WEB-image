@@ -138,6 +138,7 @@ export class previousResponse {
 
 export class ChatInfo {
   _id: ObjectId
+  userId: string
   roomId: number
   uuid: number
   dateTime: number
@@ -146,14 +147,20 @@ export class ChatInfo {
   status: Status = Status.Normal
   options: ChatOptions
   imageBase64?: string
+  imgOperation?: string
+  taskId?: string
+  imgResultStatus?: string
   previousResponse?: previousResponse[]
-  constructor(roomId: number, uuid: number, prompt: string, options: ChatOptions, imageBase64?: string) {
+  constructor(userId: string, roomId: number, uuid: number, prompt: string, options: ChatOptions, imageBase64?: string, imgOperation?: string, taskId?: string) {
+    this.userId = userId
     this.roomId = roomId
     this.uuid = uuid
     this.prompt = prompt
     this.options = options
     this.dateTime = new Date().getTime()
     this.imageBase64 = imageBase64
+    this.imgOperation = imgOperation
+    this.taskId = taskId || null
   }
 }
 

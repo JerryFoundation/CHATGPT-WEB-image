@@ -11,6 +11,8 @@ export interface RequestProps {
   top_p?: number
   imageBase64?: string
   imageType?: string
+  imgOperation?: string
+  taskId?: string
 }
 
 export interface ChatContext {

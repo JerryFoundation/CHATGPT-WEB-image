@@ -2,6 +2,9 @@ interface SendResponseOptions<T = any> {
   type: 'Success' | 'Fail'
   message?: string
   data?: T
+  taskId?: string
+  imgResultStatus?: string
+  imageAction?: string
 }
 
 export function sendResponse<T>(options: SendResponseOptions<T>) {
@@ -10,6 +13,9 @@ export function sendResponse<T>(options: SendResponseOptions<T>) {
       message: options.message ?? null,
       data: options.data ?? null,
       status: options.type,
+      taskId: options.taskId ?? null,
+      imgResultStatus: options.imgResultStatus ?? null,
+      imageAction: options.imageAction ?? null,
     })
   }
 

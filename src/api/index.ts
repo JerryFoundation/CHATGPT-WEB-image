@@ -23,6 +23,8 @@ export function fetchChatConfig<T = any>() {
 
 export function fetchChatAPIProcess<T = any>(
   params: {
+    taskId: string
+    imgAction: string
     imageType: string
     imageBase64: string
     roomId: number
@@ -37,6 +39,8 @@ export function fetchChatAPIProcess<T = any>(
   const authStore = useAuthStore()
 
   let data: Record<string, any> = {
+    taskId: params.taskId,
+    imgOperation: params.imgAction,
     roomId: params.roomId,
     uuid: params.uuid,
     regenerate: params.regenerate || false,

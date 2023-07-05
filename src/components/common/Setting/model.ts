@@ -25,6 +25,19 @@ export class UserConfig {
   imageMode?: IMAGEMODE
 }
 
+export class ImgChange {
+  imgAction?: string
+  taskId?: string
+  actionName?: string
+  roomId?: number
+  constructor(imgAction: string, taskId: string, actionName: string, roomId: number) {
+    this.imgAction = imgAction
+    this.taskId = taskId
+    this.actionName = actionName
+    this.roomId = roomId
+  }
+}
+
 export class SiteConfig {
   siteTitle?: string
   loginEnabled?: boolean

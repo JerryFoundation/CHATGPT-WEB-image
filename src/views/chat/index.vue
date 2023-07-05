@@ -19,6 +19,8 @@ import { debounce } from '@/utils/functions/debounce'
 import IconPrompt from '@/icons/Prompt.vue'
 import { UserConfig } from '@/components/common/Setting/model'
 import type { CHATMODEL, IMAGEMODE } from '@/components/common/Setting/model'
+import eventMitt, { BACK_PLAN_CONFIG_READONLY } from '@/events'
+
 const Prompt = defineAsyncComponent(() => import('@/components/common/Setting/Prompt.vue'))
 
 let controller = new AbortController()
@@ -52,6 +54,9 @@ const showPrompt = ref(false)
 const imageUrl = ref<any>('')
 const zipImageUrl = ref<any>('')
 const imageType = ref<any>('')
+let imageAction = ''
+let changeTaskId = ''
+let imgResultStatus = ''
 
 let loadingms: MessageReactive
 let allmsg: MessageReactive
@@ -134,6 +139,9 @@ async function onConversation() {
       conversationOptions: null,
       requestOptions: { prompt: message, options: null },
       imageBase64: image,
+      changeTaskId,
+      imageResultStatus: imgResultStatus,
+      imageAction,
     },
   )
   scrollToBottom()
@@ -159,6 +167,9 @@ async function onConversation() {
       conversationOptions: null,
       requestOptions: { prompt: message, options: { ...options } },
       imageBase64: '',
+      changeTaskId,
+      imageResultStatus: imgResultStatus,
+      imageAction,
     },
   )
   scrollToBottom()
@@ -167,6 +178,8 @@ async function onConversation() {
     let lastText = ''
     const fetchChatAPIOnce = async () => {
       await fetchChatAPIProcess<Chat.ConversationResponse>({
+        taskId: changeTaskId,
+        imgAction: imageAction,
         imageType: userStore.userInfo.config.imageMode || '',
         imageBase64: image,
         roomId: +uuid,
@@ -185,6 +198,10 @@ async function onConversation() {
           try {
             const data = JSON.parse(chunk)
             lastChatInfo = data
+            imgResultStatus = data.imgResultStatus || null
+            if (imgResultStatus === 'change')
+              changeTaskId = data.taskId || null
+            const imageActionReturn = data.imgOperation
             const usage = (data.detail && data.detail.usage)
               ? {
                   completion_tokens: data.detail.usage.completion_tokens || null,
@@ -206,9 +223,12 @@ async function onConversation() {
                 requestOptions: { prompt: message, options: { ...options } },
                 usage,
                 imageBase64: image,
+                changeTaskId,
+                imageResultStatus: imgResultStatus,
+                imageAction: imageActionReturn,
               },
             )
-
+            imageAction = ''
             if (openLongReply && data.detail && data.detail.choices.length > 0 && data.detail.choices[0].finish_reason === 'length') {
               options.parentMessageId = data.id
               lastText = data.text
@@ -270,6 +290,9 @@ async function onConversation() {
         conversationOptions: null,
         requestOptions: { prompt: message, options: { ...options } },
         imageBase64: image,
+        changeTaskId,
+        imageResultStatus: imgResultStatus,
+        imageAction,
       },
     )
     scrollToBottomIfAtBottom()
@@ -301,6 +324,8 @@ async function onRegenerate(index: number) {
 
   loading.value = true
   const chatUuid = dataSources.value[index].uuid
+  const changeTaskId = dataSources.value[index].changeTaskId
+  const imageAction = dataSources.value[index].imageAction
   updateChat(
     +uuid,
     index,
@@ -314,6 +339,9 @@ async function onRegenerate(index: number) {
       conversationOptions: null,
       requestOptions: { prompt: message, options: { ...options } },
       imageBase64,
+      changeTaskId: '',
+      imageResultStatus: '',
+      imageAction: '',
     },
   )
 
@@ -321,6 +349,8 @@ async function onRegenerate(index: number) {
     let lastText = ''
     const fetchChatAPIOnce = async () => {
       await fetchChatAPIProcess<Chat.ConversationResponse>({
+        taskId: changeTaskId,
+        imgAction: imageAction,
         imageType: userStore.userInfo.config.imageMode || '',
         imageBase64,
         roomId: +uuid,
@@ -340,6 +370,11 @@ async function onRegenerate(index: number) {
           try {
             const data = JSON.parse(chunk)
             lastChatInfo = data
+            const imgResultStatus = data.imgResultStatus || null
+            let changeTaskId
+            if (imgResultStatus === 'change')
+              changeTaskId = data.taskId || null
+            const imageAction = data.imgOperation || null
             const usage = (data.detail && data.detail.usage)
               ? {
                   completion_tokens: data.detail.usage.completion_tokens || null,
@@ -362,6 +397,9 @@ async function onRegenerate(index: number) {
                 requestOptions: { prompt: message, options: { ...options } },
                 usage,
                 imageBase64,
+                changeTaskId,
+                imageResultStatus: imgResultStatus,
+                imageAction,
               },
             )
 
@@ -408,6 +446,9 @@ async function onRegenerate(index: number) {
         conversationOptions: null,
         requestOptions: { prompt: message, options: { ...options } },
         imageBase64: '',
+        changeTaskId: '',
+        imageResultStatus: '',
+        imageAction: '',
       },
     )
   }
@@ -432,6 +473,9 @@ async function onResponseHistory(index: number, historyIndex: number) {
       requestOptions: { prompt: chat.requestOptions.prompt, options: { ...chat.requestOptions.options } },
       usage: chat.usage,
       imageBase64: zipImageUrl,
+      changeTaskId: chat.taskId,
+      imageResultStatus: chat.imgResultStatus,
+      imageAction: chat.imgOperation,
     },
   )
 }
@@ -658,6 +702,14 @@ onMounted(() => {
     if (chatModels != null && chatModels.filter(d => d.value === userStore.userInfo.config.chatModel).length <= 0)
       ms.error('你选择的模型已不存在，请重新选择 | The selected model not exists, please choose again.', { duration: 7000 })
   }
+
+  eventMitt.on(BACK_PLAN_CONFIG_READONLY, async (cantEdit) => {
+    prompt.value = `任务ID:${cantEdit.taskId}->${cantEdit.actionName}`
+    imageAction = cantEdit.imgAction
+    changeTaskId = cantEdit.taskId
+    if (cantEdit.roomId === +uuid)
+      await onConversation()
+  })
 })
 
 watch(() => chatStore.active, (newVal, oldVal) => {
@@ -736,9 +788,12 @@ function reupload() {
                   :inversion="item.inversion"
                   :response-count="item.responseCount"
                   :usage="item && item.usage || undefined"
+                  :task-id="item.changeTaskId"
                   :error="item.error"
                   :loading="item.loading"
+                  :room-id="+uuid"
                   :gen-image-base64="item.imageBase64"
+                  :image-result-status="item.imageResultStatus"
                   @regenerate="onRegenerate(index)"
                   @delete="handleDelete(index)"
                   @response-history="(ev) => onResponseHistory(index, ev)"

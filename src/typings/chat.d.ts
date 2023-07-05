@@ -17,6 +17,9 @@ declare namespace Chat {
       estimated: boolean
     }
     imageBase64: string
+    changeTaskId: string
+    imageResultStatus: string
+    imageAction: string
   }
 
   interface History {

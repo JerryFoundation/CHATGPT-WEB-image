@@ -30,6 +30,7 @@ import {
   renameChatRoom,
   updateApiKeyStatus,
   updateChat,
+  updateChatTaskId,
   updateConfig,
   updateRoomPrompt,
   updateRoomUsingContext,
@@ -187,6 +188,9 @@ router.get('/chat-history', auth, async (req, res) => {
             options: null,
           },
           imageBase64: c.imageBase64,
+          imageAction: c.imgOperation,
+          changeTaskId: c.taskId,
+          imageResultStatus: c.imgResultStatus,
         })
       }
       if (c.status !== Status.ResponseDeleted) {
@@ -220,6 +224,9 @@ router.get('/chat-history', auth, async (req, res) => {
           },
           usage,
           imageBase64: c.imageBase64,
+          imageAction: c.imgOperation,
+          changeTaskId: c.taskId,
+          imageResultStatus: c.imgResultStatus,
         })
       }
     })
@@ -283,6 +290,9 @@ router.get('/chat-response-history', auth, async (req, res) => {
           },
         },
         usage,
+        imageAction: chat.imgOperation,
+        changeTaskId: chat.taskId,
+        imageResultStatus: chat.imgResultStatus,
       },
     })
   }
@@ -350,17 +360,17 @@ router.post('/chat', auth, async (req, res) => {
       if (regenerate && message.options.messageId) {
         const previousResponse = message.previousResponse || []
         previousResponse.push({ response: message.response, options: message.options })
-        await updateChat(message._id as unknown as string,
+        await updateChat(null, message._id as unknown as string,
           response.data.text,
           response.data.id,
           response.data.detail?.usage as UsageResponse,
           previousResponse as [])
       }
       else {
-        await updateChat(message._id as unknown as string,
+        await updateChat(null, message._id as unknown as string,
           response.data.text,
           response.data.id,
-          response.data.detail?.usage as UsageResponse)
+          response.data.detail?.usage as UsageResponse, null)
       }
 
       if (response.data.usage) {
@@ -381,7 +391,7 @@ router.post('/chat', auth, async (req, res) => {
 router.post('/chat-process', [auth, limiter], async (req, res) => {
   res.setHeader('Content-type', 'application/octet-stream')
 
-  let { roomId, uuid, regenerate, prompt, options = {}, systemMessage, temperature, top_p, imageBase64, imageType } = req.body as RequestProps
+  let { roomId, uuid, regenerate, prompt, options = {}, systemMessage, temperature, top_p, imageBase64, imageType, imgOperation, taskId } = req.body as RequestProps
   const userId = req.headers.userId as string
   const room = await getChatRoom(userId, roomId)
   if (room == null)
@@ -408,7 +418,7 @@ router.post('/chat-process', [auth, limiter], async (req, res) => {
 
     message = regenerate
       ? await getChat(roomId, uuid)
-      : await insertChat(uuid, prompt, roomId, options as ChatOptions, imageBase64)
+      : await insertChat(userId, uuid, prompt, roomId, options as ChatOptions, imageBase64, imgOperation, taskId)
     let firstChunk = true
     result = await chatReplyProcess({
       message: prompt,
@@ -442,6 +452,8 @@ router.post('/chat-process', [auth, limiter], async (req, res) => {
       room,
       imageBase64,
       imageType,
+      imgOperation,
+      taskId,
     })
     // return the whole response including usage
     res.write(`\n${JSON.stringify(result.data)}`)
@@ -462,12 +474,15 @@ router.post('/chat-process', [auth, limiter], async (req, res) => {
         // eslint-disable-next-line no-unsafe-finally
         return
       // 增加画图返回
+      if (result.taskId !== '' && result.taskId !== null)
+        await updateChatTaskId(message._id as unknown as string, result.taskId as string)
       if (result.data.text === undefined)
         result.data.text = result.data.message
       if (regenerate && message.options.messageId) {
         const previousResponse = message.previousResponse || []
         previousResponse.push({ response: message.response, options: message.options })
-        await updateChat(message._id as unknown as string,
+        await updateChat(result.imgResultStatus,
+          message._id as unknown as string,
           result.data.text,
           result.data.id,
           result.data.conversationId,
@@ -475,7 +490,8 @@ router.post('/chat-process', [auth, limiter], async (req, res) => {
           previousResponse as [])
       }
       else {
-        await updateChat(message._id as unknown as string,
+        await updateChat(result.imgResultStatus,
+          message._id as unknown as string,
           result.data.text,
           result.data.id,
           result.data.conversationId,
@@ -507,7 +523,8 @@ router.post('/chat-abort', [auth, limiter], async (req, res) => {
     const userId = req.headers.userId.toString()
     const { text, messageId, conversationId } = req.body as { text: string; messageId: string; conversationId: string }
     const msgId = await abortChatProcess(userId)
-    await updateChat(msgId,
+    await updateChat(null,
+      msgId,
       text,
       messageId,
       conversationId,

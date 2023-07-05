@@ -4,9 +4,52 @@ import MarkdownIt from 'markdown-it'
 import mdKatex from '@traptitech/markdown-it-katex'
 import mila from 'markdown-it-link-attributes'
 import hljs from 'highlight.js'
+import { NButton } from 'naive-ui'
 import { useBasicLayout } from '@/hooks/useBasicLayout'
 import { t } from '@/locales'
 import { copyToClip } from '@/utils/copy'
+import eventMitt, { BACK_PLAN_CONFIG_READONLY } from '@/events'
+import { ImgChange } from '@/components/common/Setting/model'
+
+const props = defineProps<Props>()
+
+const UList = ref([
+  {
+    value: 'U1',
+    name: '放大1',
+  },
+  {
+    value: 'U2',
+    name: '放大2',
+  },
+  {
+    value: 'U3',
+    name: '放大3',
+  },
+  {
+    value: 'U4',
+    name: '放大4',
+  },
+])
+
+const VList = ref([
+  {
+    value: 'V1',
+    name: '变换1',
+  },
+  {
+    value: 'V2',
+    name: '变换2',
+  },
+  {
+    value: 'V3',
+    name: '变换3',
+  },
+  {
+    value: 'V4',
+    name: '变换4',
+  },
+])
 
 interface Props {
   inversion?: boolean
@@ -15,9 +58,10 @@ interface Props {
   loading?: boolean
   asRawText?: boolean
   genImageBase64?: string
+  roomId?: number
+  taskId?: string
+  imageResultStatus?: string
 }
-
-const props = defineProps<Props>()
 
 const { isMobile } = useBasicLayout()
 
@@ -96,6 +140,14 @@ function removeCopyEvents() {
     })
   }
 }
+
+function changeImg(action: string, actionName: string) {
+  eventMitt.emit(
+    BACK_PLAN_CONFIG_READONLY,
+    new ImgChange(action, props.taskId as string, actionName, props.roomId as number),
+  )
+}
+
 onMounted(() => {
   addCopyEvents()
 })
@@ -109,18 +161,72 @@ onUnmounted(() => {
 
 <template>
   <div class="text-black" :class="wrapClass">
-    <div ref="textRef" class="leading-relaxed break-words">
-      <div v-if="!inversion" class="flex items-end">
-        <div v-if="!asRawText" class="w-full markdown-body" v-html="text" />
-        <div v-else class="w-full whitespace-pre-wrap" v-text="text" />
-        <span v-if="loading" class="dark:text-white w-[4px] h-[20px] block animate-blink" />
+    <div>
+      <div ref="textRef" class="leading-relaxed break-words">
+        <div v-if="!inversion" class="flex items-end">
+          <div v-if="!asRawText" class="w-full markdown-body" v-html="text" />
+          <div v-else class="w-full whitespace-pre-wrap" v-text="text" />
+          <span v-if="loading" class="dark:text-white w-[4px] h-[20px] block animate-blink" />
+        </div>
+        <div v-else class="whitespace-pre-wrap" v-text="text" />
+        <img v-if="genImageBase64" :src="genImageBase64" style="width: 400px;">
       </div>
-      <div v-else class="whitespace-pre-wrap" v-text="text" />
-        <img :src="genImageBase64" v-if="genImageBase64" style="width: 400px;">
+    </div>
+    <div v-if="!inversion && imageResultStatus !== null && imageResultStatus === 'change'">
+      <div
+        style="margin-top: 20px;"
+      >
+        <NButton
+          v-for="(item, index) in UList"
+          :key="index"
+          type="tertiary"
+          size="medium"
+          class="custom-button"
+          ghost
+          strong
+          @click="changeImg(item.value, item.name)"
+        >
+          {{ item.name }}
+        </NButton>
+      </div>
+      <div
+        style="margin-top: 20px;"
+      >
+        <NButton
+          v-for="(item, index) in VList"
+          :key="index"
+          type="tertiary"
+          size="medium"
+          class="custom-button"
+          ghost
+          strong
+          @click="changeImg(item.value, item.name)"
+        >
+          {{ item.name }}
+        </NButton>
+      </div>
     </div>
   </div>
 </template>
 
 <style lang="less">
+  /* 样式属性 */
+  @media (max-width: 767px) {
+  .custom-button {
+    margin-right: 5px;
+    /* 其他手机样式 */
+    color:#ff69b4;
+  }
+}
+
+/* 电脑设备样式 */
+@media (min-width: 768px) {
+  .custom-button {
+    margin-right: 30px;
+    color:rgb(73, 214, 167)
+    /* 其他电脑样式 */
+  }
+}
+
 @import url(./style.less);
 </style>

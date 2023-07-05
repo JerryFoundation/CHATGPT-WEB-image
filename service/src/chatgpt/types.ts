@@ -14,6 +14,8 @@ export interface RequestOptions {
   room: ChatRoom
   imageBase64?: string
   imageType?: string
+  imgOperation?: string
+  taskId?: string
 }
 
 export interface BalanceResponse {

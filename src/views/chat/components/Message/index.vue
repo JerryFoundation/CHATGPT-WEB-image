@@ -23,6 +23,9 @@ interface Props {
     estimated: boolean
   }
   genImageBase64?: string
+  taskId?: string
+  imageResultStatus?: string
+  roomId?: number
 }
 const props = defineProps<Props>()
 
@@ -181,6 +184,9 @@ async function handlePreviousResponse(next: number) {
           :loading="loading"
           :as-raw-text="asRawText"
           :gen-image-base64="genImageBase64"
+          :task-id="taskId"
+          :image-result-status="imageResultStatus"
+          :room-id="roomId"
         />
         <div class="flex flex-col">
           <button

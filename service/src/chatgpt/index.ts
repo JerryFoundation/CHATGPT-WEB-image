@@ -108,24 +108,25 @@ async function createTask(message: string, imageBase64?: string): Promise<string
     state: '',
   })
 
-  if (!response?.data?.result)
+  if (!response?.data)
     return null
 
-  return response.data.result
+  return response.data
 }
 
 async function createSimpleChangeTask(taskId: string, action: string): Promise<string | null> {
+  console.log(`${taskId},${action}`)
   const config = await getCacheConfig()
-  const response = await axios.post(`${config.mjApiProxy}/mj/submit/imagine`, {
+  const response = await axios.post(`${config.mjApiProxy}/mj/submit/simple-change`, {
     content: `${taskId} ${action}`,
     notifyHook: '',
     state: '',
   })
 
-  if (!response?.data?.result)
+  if (!response?.data)
     return null
 
-  return response.data.result
+  return response.data
 }
 
 async function createDescribeTask(imageBase64?: string): Promise<string | null> {
@@ -160,28 +161,54 @@ async function fetchImageURL(taskId: string): Promise<string | null> {
   }
 }
 
-async function draw({ userId, message, imageBase64, imageType, process, transMsg }: { userId: string;message: string; imageBase64: string; imageType: string; process?: (chat: ChatMessage) => void; transMsg: string }): Promise<ChatMessage> {
+async function draw({ userId, message, imageBase64, imageType, process, transMsg, imgOperation, changeTaskId }: { userId: string;message: string; imageBase64: string; imageType: string; process?: (chat: ChatMessage) => void; transMsg: string ;imgOperation: string; changeTaskId: string }): Promise<ChatMessage> {
   const config = await getCacheConfig()
   // eslint-disable-next-line no-console
   console.log(`开启画图：${imageBase64},${imageType}`)
   let taskId = null
-  if (imageType === 'wensengtu')
-    taskId = await createTask(transMsg)
-  else if (imageType === 'tusengtu')
-    taskId = await createTask(transMsg, imageBase64)
-  else if (imageType === 'tusengwen')
-    taskId = await createDescribeTask(imageBase64)
-  if (!taskId) {
-    console.error('Failed to create task')
-    return null
+  let imgStatus = null
+  let response
+  if (imgOperation !== '') {
+    response = await createSimpleChangeTask(changeTaskId, imgOperation)
+    taskId = response.result
+    if (imgOperation === 'V1' || imgOperation === 'V2' || imgOperation === 'V3' || imgOperation === 'V4')
+      imgStatus = 'change'
+    else
+      imgStatus = 'noChange'
   }
-  const text = `**任务名称**: ${message} \n **加速生成中**`
+  else if (imageType === 'tusengtu') {
+    response = await createTask(transMsg, imageBase64)
+    taskId = response.result
+    imgStatus = 'change'
+  }
+  else if (imageType === 'tusengwen') {
+    response = await createDescribeTask(imageBase64)
+    taskId = response.result
+    imgStatus = 'noChange'
+  }
+  else if (imageType === 'wensengtu') {
+    response = await createTask(transMsg)
+    taskId = response.result
+    imgStatus = 'change'
+  }
+  const text = `**任务名称**: ${message} \n **任务ID**：${taskId} \n **加速生成中**`
   let dataRes = {
     id: taskId,
     conversationId: 'some-conversation-id',
     text,
     detail: null,
     role: null,
+    imgResultStatus: null,
+    taskId: null,
+    imgOperation,
+  }
+  if (!taskId) {
+    console.error('Failed to create task')
+    dataRes = {
+      ...dataRes,
+      text: `**任务名称**: ${message} \n **失败原因**：${response.description}`,
+    }
+    return dataRes
   }
   process(dataRes)
   while (true) {
@@ -192,7 +219,7 @@ async function draw({ userId, message, imageBase64, imageType, process, transMsg
     if (response?.status === 'FAILURE') {
       dataRes = {
         ...dataRes,
-        text: `**任务名称**: ${message} \n **失败原因**：${response.failReason}`,
+        text: `**任务名称**: ${message} \n **任务ID**：${taskId} \n **失败原因**：${response.failReason}`,
       }
       return dataRes
     }
@@ -202,10 +229,20 @@ async function draw({ userId, message, imageBase64, imageType, process, transMsg
       prompt = response.prompt
     dataRes = {
       ...dataRes,
-      text: `**任务名称**: ${prompt} \n **生成进度**：${response.progress} ![我的图片](${url})`,
+      text: `**任务名称**: ${prompt} \n **任务ID**：${taskId} \n **生成进度**：${response.progress} ![我的图片](${url})`,
     }
     process(dataRes)
     if (response?.status === 'SUCCESS') {
+      let newTaskId = ''
+      if (imgStatus === 'change')
+        newTaskId = taskId
+      dataRes = {
+        ...dataRes,
+        text: `**任务名称**: ${prompt} \n **任务ID**：${taskId} \n **生成进度**：${response.progress} ![我的图片](${url})`,
+        imgResultStatus: imgStatus,
+        taskId: newTaskId,
+        imgOperation,
+      }
       insertTaskImg(userId, message, taskId)
       return dataRes
     }
@@ -238,6 +275,8 @@ async function chatReplyProcess(options: RequestOptions) {
   const messageId = options.messageId
   const imageBase64 = options.imageBase64
   const imageType = options.imageType
+  const imgOperation = options.imgOperation
+  const changeTaskId = options.taskId
   if (key == null || key === undefined)
     throw new Error('没有可用的配置。请再试一次 | No available configuration. Please try again.')
 
@@ -255,8 +294,8 @@ async function chatReplyProcess(options: RequestOptions) {
   try {
     if (model === 'mid-journey') {
       const transMsg = await translateWithGpt(key, systemMessage, temperature, top_p, message)
-      const response = await draw({ userId, message, imageBase64, imageType, process, transMsg })
-      return sendResponse({ type: 'Success', data: response })
+      const response = await draw({ userId, message, imageBase64, imageType, process, transMsg, imgOperation, changeTaskId })
+      return sendResponse({ type: 'Success', data: response, taskId: response ? response.taskId : null, imgResultStatus: response ? response.imgResultStatus : null, imageAction: response ? response.imgOperation : null })
     }
     const timeoutMs = (await getCacheConfig()).timeoutMs
     let options: SendMessageOptions = { timeoutMs }
@@ -323,7 +362,7 @@ async function translateWithGpt(key: KeyConfig, systemMessage: string, temperatu
 
   const abort = new AbortController()
   options.abortSignal = abort.signal
-  const prompt = `我希望你能担任英语翻译的角色。我会用任何语言和你交流，你会识别语言，如果是英文就原封不动返回给我，如果是其他语言就翻译成英文给到我，只回复英文翻译或者原文，不要说任何别的信息。比如你好，只需回复hello，还不如hello，就回复hello，不要说任何不相关信息，我需要翻译的内容是  "${message}"`
+  const prompt = `我希望你能担任英语翻译的角色，只回复英文翻译或者原文，不要说任何别的信息。我会用任何语言和你交流，你会识别语言，如果是英文就原封不动返回给我，如果是其他语言就翻译成英文给到我，只回复英文翻译或者原文，不要说任何别的信息。例如我发给你"你好"，你只需回复"hello"，例如我发给你"hello"，你就回复"hello"，不要说任何不相关信息，现在我需要翻译的内容是  "${message}"`
   const response = await api.sendMessage(prompt, {
     ...options,
     onProgress: () => {

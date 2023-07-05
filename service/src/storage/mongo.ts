@@ -26,8 +26,8 @@ const imgTaskCol = client.db(dbName).collection('user_img_task')
  * @param options
  * @returns model
  */
-export async function insertChat(uuid: number, text: string, roomId: number, options?: ChatOptions, imageBase64?: string) {
-  const chatInfo = new ChatInfo(roomId, uuid, text, options, imageBase64)
+export async function insertChat(userId: string, uuid: number, text: string, roomId: number, options?: ChatOptions, imageBase64?: string, imgOperation?: string, taskId?: string) {
+  const chatInfo = new ChatInfo(userId, roomId, uuid, text, options, imageBase64, imgOperation, taskId)
   await chatCol.insertOne(chatInfo)
   return chatInfo
 }
@@ -46,10 +46,11 @@ export async function getChatByMessageId(messageId: string) {
   return await chatCol.findOne({ 'options.messageId': messageId }) as ChatInfo
 }
 
-export async function updateChat(chatId: string, response: string, messageId: string, conversationId: string, usage: UsageResponse, previousResponse?: []) {
+export async function updateChat(imgResultStatus: string, chatId: string, response: string, messageId: string, conversationId: string, usage: UsageResponse, previousResponse?: []) {
   const query = { _id: new ObjectId(chatId) }
   const update = {
     $set: {
+      'imgResultStatus': imgResultStatus,
       'response': response,
       'options.messageId': messageId,
       'options.conversationId': conversationId,
@@ -62,6 +63,17 @@ export async function updateChat(chatId: string, response: string, messageId: st
 
   if (previousResponse)
     update.$set.previousResponse = previousResponse
+
+  await chatCol.updateOne(query, update)
+}
+
+export async function updateChatTaskId(chatId: string, changeTaskId: string) {
+  const query = { _id: new ObjectId(chatId) }
+  const update = {
+    $set: {
+      taskId: changeTaskId,
+    },
+  }
 
   await chatCol.updateOne(query, update)
 }
