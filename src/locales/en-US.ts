@@ -141,6 +141,7 @@ export default {
     remark: 'Remark',
   },
   store: {
+    plugin: 'Plugin Store',
     siderButton: 'Prompt Store',
     local: 'Local',
     online: 'Online',

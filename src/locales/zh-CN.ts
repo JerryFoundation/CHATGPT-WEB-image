@@ -142,6 +142,7 @@ export default {
     remark: '备注',
   },
   store: {
+    plugin: '插件商店',
     siderButton: '提示词商店',
     local: '本地',
     online: '在线',

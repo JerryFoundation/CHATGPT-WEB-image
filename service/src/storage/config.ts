@@ -97,6 +97,8 @@ export async function getOriginConfig() {
   config.mjApiProxy = process.env.MJ_API_PROXY
   config.maxModelTokens = process.env.MAX_MODEL_TOKENS || 4096
   config.maxResponseTokens = process.env.MAX_RESPONSE_TOKENS || 1000
+  config.autoGptUrl = process.env.AUTO_GPT_URL
+  config.autoGptToken = process.env.AUTO_GPT_TOKEN
   return config
 }
 

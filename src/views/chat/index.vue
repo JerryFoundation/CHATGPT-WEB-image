@@ -4,7 +4,7 @@ import { computed, defineAsyncComponent, nextTick, onMounted, onUnmounted, ref, 
 import { useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import type { MessageReactive } from 'naive-ui'
-import { NAutoComplete, NButton, NInput, NSelect, NSpace, NSpin, useDialog, useMessage } from 'naive-ui'
+import { NAutoComplete, NButton, NInput, NSelect, NSpace, NSpin, useDialog, useMessage,NModal,NCard,NLayout,NSwitch } from 'naive-ui'
 import html2canvas from 'html2canvas'
 import { Message } from './components'
 import { useScroll } from './hooks/useScroll'
@@ -13,7 +13,7 @@ import HeaderComponent from './components/Header/index.vue'
 import { HoverButton, SvgIcon } from '@/components/common'
 import { useBasicLayout } from '@/hooks/useBasicLayout'
 import { useAuthStore, useChatStore, usePromptStore, useUserStore } from '@/store'
-import { fetchChatAPIProcess, fetchChatResponseoHistory, fetchChatStopResponding, fetchUpdateUserChatModel } from '@/api'
+import { fetchChatAPIProcess, fetchChatResponseoHistory, fetchChatStopResponding, fetchUpdateUserChatModel,fetchUpdatePlugin,queryUserFunction } from '@/api'
 import { t } from '@/locales'
 import { debounce } from '@/utils/functions/debounce'
 import IconPrompt from '@/icons/Prompt.vue'
@@ -239,7 +239,7 @@ async function onConversation() {
             scrollToBottomIfAtBottom()
           }
           catch (error) {
-            //
+            console.log('error')
           }
         },
       })
@@ -753,6 +753,88 @@ function reupload() {
   const event = new MouseEvent('click')
   input.dispatchEvent(event)
 }
+
+const showplugin = ref(false)
+
+function handleSwitchChange(item:any){
+
+const openSwitches = PluginList.value.filter(item => item.switch); // 筛选出开关打开的项
+
+if (openSwitches.length > 3) {
+  // 执行其他操作...
+  alert('开关打开个数已超过3个')
+  item.switch = false
+}else{
+  fetchUpdatePlugin(item.value,item.switch)
+}
+}
+
+const dynamicPluginList = computed(() => {
+  if (showplugin.value) {
+    queryUserFunction().then((data) => {
+      const functions = data.data as string[]
+      // 遍历 PluginList
+      PluginList.value.forEach((item) => {
+        // 判断 functions 中是否存在与当前 item.name 相同的名称
+        const found = functions.some((func) => func === item.value)
+        console.log(found)
+        if(found){
+          item.switch = true
+        }else{
+          item.switch = false
+        }
+      })
+    })
+    // 这里返回 PluginList.value（可能是未更新的值）
+    return PluginList.value
+  }
+
+  // 返回一个默认值或空数组，根据你的需求进行更改
+  return []
+})
+
+const PluginList = ref([
+  {
+    value: 'baiduSearch',
+    name: '百度搜索插件',
+    switch: false,
+  },
+  {
+    value: 'weiboHotSearch',
+    name: '微博热搜插件',
+    switch: false,
+  },
+  {
+    value: 'sendMail',
+    name: '发送邮件插件',
+    switch: false,
+  },
+  {
+    value: 'baiduBaikeSearch',
+    name: '百度百科插件',
+    switch: false,
+  },
+  {
+    value: 'queryWeather',
+    name: '天气插件',
+    switch: false,
+  },
+  {
+    value: 'getNews',
+    name: '新闻插件',
+    switch: false,
+  },
+  {
+    value: 'getCurrentTime',
+    name: '获取当前时间插件',
+    switch: false,
+  },
+  {
+    value: 'createImage',
+    name: '生成图片',
+    switch: false,
+  },
+])
 </script>
 
 <template>
@@ -861,6 +943,9 @@ function reupload() {
                 <i class="el-icon-upload el-icon--right"> 上传图片 </i>
               </el-button>
             </div>
+            <NButton block @click="showplugin = true"  v-if="userStore.userInfo.config.chatModel === 'auto-gpt'" style="width: 200px">
+              {{ $t('store.plugin') }}
+          </NButton>
           </div>
           <div class="flex items-center justify-between space-x-2">
             <NAutoComplete v-model:value="prompt" :options="searchOptions" :render-label="renderOption">
@@ -892,4 +977,23 @@ function reupload() {
     </footer>
     <Prompt v-if="showPrompt" v-model:roomId="uuid" v-model:visible="showPrompt" />
   </div>
+  <NModal v-model:show="showplugin">
+    <NCard
+      style="width: 450px"
+      title="插件商店"
+      :bordered="false"
+      size="huge"
+      role="dialog"
+      aria-modal="true"
+    >
+      <div style="height: 300px;" position="absolute">
+        <NLayout position="absolute" content-style="padding: 0px;">
+          <NCard v-for="(item) in dynamicPluginList" :title="item.name">
+            {{ item.name }}
+            <NSwitch v-model:value="item.switch" @update:value="handleSwitchChange(item)"/>
+          </NCard>
+        </NLayout>
+      </div>
+    </NCard>
+  </NModal>
 </template>

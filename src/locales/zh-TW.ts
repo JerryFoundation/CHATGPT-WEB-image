@@ -142,6 +142,7 @@ export default {
     remark: '備註',
   },
   store: {
+    plugin: '插件商店',
     siderButton: '提示詞商店',
     local: '本機',
     online: '線上',

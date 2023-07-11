@@ -107,6 +107,19 @@ export function fetchVerifyAdmin<T>(token: string) {
   })
 }
 
+export function fetchUpdatePlugin<T>(functionName:string,functionSwitch:boolean) {
+  return post<T>({
+    url: '/updatePlugin',
+    data: { functionName,functionSwitch },
+  })
+}
+
+export function queryUserFunction<T>() {
+  return post<T>({
+    url: '/queryUserFunction',
+  })
+}
+
 export function fetchLogin<T = any>(username: string, password: string) {
   return post<T>({
     url: '/user-login',

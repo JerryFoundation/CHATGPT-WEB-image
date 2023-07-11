@@ -139,6 +139,7 @@ export default {
     remark: 'Remark',
   },
   store: {
+    plugin: '플러그인 상점',
     siderButton: '프롬프트 스토어',
     local: '로컬',
     online: '온라인',

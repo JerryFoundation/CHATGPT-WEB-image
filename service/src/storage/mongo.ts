@@ -1,7 +1,7 @@
 import { MongoClient, ObjectId } from 'mongodb'
 import * as dotenv from 'dotenv'
 import dayjs from 'dayjs'
-import { ChatInfo, ChatRoom, ChatUsage, Status, UserConfig, UserInfo, UserRole, UserTaskImg } from './model'
+import { ChatInfo, ChatRoom, ChatUsage, FunctionConfig, Status, UserConfig, UserInfo, UserRole, UserTaskImg } from './model'
 import type { CHATMODEL, ChatOptions, Config, KeyConfig, UsageResponse } from './model'
 
 dotenv.config()
@@ -17,6 +17,7 @@ const configCol = client.db(dbName).collection('config')
 const usageCol = client.db(dbName).collection('chat_usage')
 const keyCol = client.db(dbName).collection('key_config')
 const imgTaskCol = client.db(dbName).collection('user_img_task')
+const functionConfig = client.db(dbName).collection('function_config')
 
 /**
  * 插入聊天信息
@@ -36,6 +37,37 @@ export async function insertTaskImg(userId: string, prompt: string, taskId: stri
   const userImgList = new UserTaskImg(userId, prompt, taskId)
   await imgTaskCol.insertOne(userImgList)
   return userImgList
+}
+
+export async function updateFunctionConfig(userId: string, functionName: string, functionSwitch: boolean) {
+  const query = { userId, functionName }
+  const update = {
+    $set: {
+      functionName,
+      functionSwitch,
+    },
+  }
+  const options = { upsert: true }
+  await functionConfig.updateOne(query, update, options)
+}
+
+export async function getFunctionConfigs(userId: string) {
+  const cursor = await functionConfig.find({ userId, functionSwitch: true })
+  const functions = []
+  await cursor.forEach(doc => functions.push(doc.functionName))
+  return functions
+}
+
+export async function getChatByUserId(userId: String, roomId: number) {
+  const cursor = await chatCol.find({ roomId, userId, status: 0 }).sort({ _id: -1 }).limit(10)
+  const chats = await cursor.toArray()
+  return chats.reverse()
+}
+
+export async function insertFunctionConfig(userId: string, functionName: string, functionSwitch: boolean) {
+  const functionCfg = new FunctionConfig(userId, functionName, functionSwitch)
+  await functionConfig.insertOne(functionCfg)
+  return functionCfg
 }
 
 export async function getChat(roomId: number, uuid: number) {

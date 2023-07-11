@@ -5,17 +5,18 @@ import { ChatGPTAPI, ChatGPTUnofficialProxyAPI } from 'chatgpt'
 import { SocksProxyAgent } from 'socks-proxy-agent'
 import httpsProxyAgent from 'https-proxy-agent'
 import fetch from 'node-fetch'
-import type { AuditConfig, CHATMODEL, KeyConfig, UserInfo } from 'src/storage/model'
+import type { AuditConfig, CHATMODEL, ChatInfo, KeyConfig, UserInfo } from 'src/storage/model'
 import jwt_decode from 'jwt-decode'
 import dayjs from 'dayjs'
 import axios from 'axios'
+import { fetchEventSource } from '@fortaine/fetch-event-source'
 import type { TextAuditService } from '../utils/textAudit'
 import { textAuditServices } from '../utils/textAudit'
 import { getCacheApiKeys, getCacheConfig, getOriginConfig } from '../storage/config'
 import { sendResponse } from '../utils'
 import { hasAnyRole, isNotEmptyString } from '../utils/is'
 import type { ChatContext, ChatGPTUnofficialProxyAPIOptions, JWT, ModelConfig } from '../types'
-import { getChatByMessageId, insertTaskImg, updateRoomAccountId } from '../storage/mongo'
+import { getChatByMessageId, getChatByUserId, getFunctionConfigs, insertTaskImg, updateRoomAccountId } from '../storage/mongo'
 import type { RequestOptions } from './types'
 
 const { HttpsProxyAgent } = httpsProxyAgent
@@ -277,6 +278,7 @@ async function chatReplyProcess(options: RequestOptions) {
   const imageType = options.imageType
   const imgOperation = options.imgOperation
   const changeTaskId = options.taskId
+  const room = options.room
   if (key == null || key === undefined)
     throw new Error('没有可用的配置。请再试一次 | No available configuration. Please try again.')
 
@@ -296,6 +298,20 @@ async function chatReplyProcess(options: RequestOptions) {
       const transMsg = await translateWithGpt(key, systemMessage, temperature, top_p, message)
       const response = await draw({ userId, message, imageBase64, imageType, process, transMsg, imgOperation, changeTaskId })
       return sendResponse({ type: 'Success', data: response, taskId: response ? response.taskId : null, imgResultStatus: response ? response.imgResultStatus : null, imageAction: response ? response.imgOperation : null })
+    }
+    if (model === 'auto-gpt') {
+      const functions = await getFunctionConfigs(userId)
+      const array = []
+      const chatInfo = await getChatByUserId(userId, room.roomId)
+      for (let i = 0; i < chatInfo.length; i++) {
+        const chat = chatInfo[i] as ChatInfo
+        // 在这里执行操作，例如打印chat内容
+        array.push({ role: 'user', content: chat.prompt })
+        if (chat.response)
+          array.push({ role: 'assistant', content: chat.response || '无结果' })
+      }
+      const result = await sendMessage(message, functions, array, { message, lastContext, process, systemMessage, temperature, top_p } as RequestOptions)
+      return result
     }
     const timeoutMs = (await getCacheConfig()).timeoutMs
     let options: SendMessageOptions = { timeoutMs }
@@ -415,6 +431,110 @@ async function fetchAccessTokenExpiredTime() {
 
 let cachedBalance: number | undefined
 let cacheExpiration = 0
+
+async function sendMessage(text, functions, array, options?: RequestOptions) {
+  const config = await getCacheConfig()
+  return new Promise((resolve, reject) => {
+    let responseText = ''
+    let finished = false
+
+    const controller = new AbortController()
+
+    let dataRes = {
+      id: options.messageId,
+      conversationId: 'some-conversation-id',
+      text,
+      detail: null,
+      role: null,
+      imgResultStatus: null,
+      taskId: null,
+    }
+    try {
+      const requestPayload = {
+        requestId: '123',
+        prompt: text,
+        isFunction: true,
+        functionNameList: functions,
+        messages: array,
+        token: config.autoGptToken,
+      }
+      const chatPayload = {
+        method: 'POST',
+        body: JSON.stringify(requestPayload),
+        signal: controller.signal,
+        headers: {
+          'Content-Type': 'application/json',
+          'x-requested-with': 'XMLHttpRequest',
+        },
+      }
+      console.log(chatPayload)
+      const REQUEST_TIMEOUT_MS = 150000
+
+      // make a fetch request
+      const requestTimeoutId = setTimeout(
+        () => controller.abort(),
+        REQUEST_TIMEOUT_MS,
+      )
+      const finish = () => {
+        if (!finished) {
+          dataRes = {
+            ...dataRes,
+            text: responseText,
+          }
+          options.process(dataRes)
+          finished = true
+          resolve({ status: 'Success', data: dataRes })
+        }
+      }
+      controller.signal.onabort = finish
+      const url = config.autoGptUrl
+      console.log(url)
+      fetchEventSource(`${url}/ai/chatStream`, {
+        ...chatPayload,
+        async onopen(res) {
+          clearTimeout(requestTimeoutId)
+        },
+        onmessage(msg) {
+          const message = msg.data
+          if (message === '[DONE]' || finished) {
+            dataRes = {
+              ...dataRes,
+              text: responseText,
+            }
+            finish()
+            return
+          }
+          if (message !== '' && message !== '[DONE]') {
+            const obj = JSON.parse(message)
+            // 读取 content 字段的值
+            const content = obj.choices[0].delta.content
+            if (content) {
+              responseText += content
+              dataRes = {
+                ...dataRes,
+                id: obj.id,
+                conversationId: obj.id,
+                text: responseText,
+              }
+              options.process(dataRes)
+            }
+          }
+        },
+        onclose() {
+          finish()
+        },
+        onerror(e) {
+          reject(e)
+        },
+        openWhenHidden: true,
+      })
+    }
+    catch (error: any) {
+      console.log(`[Request] failed to make a chat reqeust, ${error}`)
+      reject(error)
+    }
+  })
+}
 
 async function fetchBalance() {
   const now = new Date().getTime()

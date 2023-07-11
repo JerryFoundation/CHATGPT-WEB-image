@@ -21,6 +21,7 @@ import {
   getChatRoom,
   getChatRooms,
   getChats,
+  getFunctionConfigs,
   getUser,
   getUserById,
   getUserStatisticsByDay,
@@ -32,6 +33,7 @@ import {
   updateChat,
   updateChatTaskId,
   updateConfig,
+  updateFunctionConfig,
   updateRoomPrompt,
   updateRoomUsingContext,
   updateUserChatModel,
@@ -92,6 +94,31 @@ router.post('/room-create', auth, async (req, res) => {
     const { title, roomId } = req.body as { title: string; roomId: number }
     const room = await createChatRoom(userId, title, roomId)
     res.send({ status: 'Success', message: null, data: room })
+  }
+  catch (error) {
+    console.error(error)
+    res.send({ status: 'Fail', message: 'Create error', data: null })
+  }
+})
+
+router.post('/updatePlugin', auth, async (req, res) => {
+  try {
+    const { functionName, functionSwitch } = req.body as { functionName: string; functionSwitch: boolean }
+    const userId = req.headers.userId as string
+    await updateFunctionConfig(userId, functionName, functionSwitch)
+    res.send({ status: 'Success', message: null, data: '' })
+  }
+  catch (error) {
+    console.error(error)
+    res.send({ status: 'Fail', message: 'Create error', data: null })
+  }
+})
+
+router.post('/queryUserFunction', auth, async (req, res) => {
+  try {
+    const userId = req.headers.userId as string
+    const result = await getFunctionConfigs(userId)
+    res.send({ status: 'Success', message: null, data: result })
   }
   catch (error) {
     console.error(error)
@@ -439,7 +466,6 @@ router.post('/chat-process', [auth, limiter], async (req, res) => {
         }
         if (chat.detail && chat.detail.choices.length > 0)
           chuck.detail.choices[0].finish_reason = chat.detail.choices[0].finish_reason
-
         res.write(firstChunk ? JSON.stringify(chuck) : `\n${JSON.stringify(chuck)}`)
         firstChunk = false
       },
