@@ -311,6 +311,7 @@ async function chatReplyProcess(options: RequestOptions) {
           array.push({ role: 'assistant', content: chat.response || '无结果' })
       }
       const result = await sendMessage(message, functions, array, { message, lastContext, process, systemMessage, temperature, top_p } as RequestOptions)
+      // const result = await sendMessage(message, functions, array, { message, lastContext, process, systemMessage, temperature, top_p } as RequestOptions)
       return result
     }
     const timeoutMs = (await getCacheConfig()).timeoutMs
@@ -433,6 +434,80 @@ let cachedBalance: number | undefined
 let cacheExpiration = 0
 
 async function sendMessage(text, functions, array, options?: RequestOptions) {
+  const config = await getCacheConfig()
+  const controller = new AbortController()
+  let responseText = ''
+  const requestPayload = {
+    requestId: '123',
+    prompt: text,
+    isFunction: true,
+    functionNameList: functions,
+    messages: array,
+    token: config.autoGptToken,
+  }
+  const chatPayload = {
+    method: 'POST',
+    body: JSON.stringify(requestPayload),
+    signal: controller.signal,
+    headers: {
+      'Content-Type': 'application/json',
+      'x-requested-with': 'XMLHttpRequest',
+    },
+    responseType: 'stream',
+  }
+  let dataRes = {
+    id: options.messageId,
+    conversationId: 'some-conversation-id',
+    text,
+    detail: null,
+    role: null,
+    imgResultStatus: null,
+    taskId: null,
+  }
+  const url = config.autoGptUrl
+  return new Promise((resolve, reject) => {
+    axios.post(`${url}/ai/chatStream`, requestPayload, { responseType: 'stream' })
+      .then((response) => {
+        const reader = response.data
+
+        // 每当有新的数据块可用，触发 'data' 事件
+        reader.on('data', (chunk) => {
+          if (chunk.toString().startsWith('{')) {
+            const obj = JSON.parse(chunk.toString())
+            const content = obj.choices[0].delta.content
+            if (content) {
+              responseText += content
+              dataRes = {
+                ...dataRes,
+                id: obj.id,
+                conversationId: obj.id,
+                text: responseText,
+              }
+              options.process(dataRes)
+            }
+          }
+        })
+
+        // 当所有数据被读取完毕，触发 'end' 事件
+        reader.on('end', () => {
+          dataRes = {
+            ...dataRes,
+            text: responseText,
+          }
+          options.process(dataRes)
+          resolve({ status: 'Success', data: dataRes })
+        })
+
+        // 当发生错误，触发 'error' 事件
+        reader.on('error', (err) => {
+          console.error('An error occurred:', err)
+        })
+      })
+      .catch(console.error)
+  })
+}
+
+async function sendMessage1(text, functions, array, options?: RequestOptions): Promise<unknown> {
   const config = await getCacheConfig()
   return new Promise((resolve, reject) => {
     let responseText = ''
