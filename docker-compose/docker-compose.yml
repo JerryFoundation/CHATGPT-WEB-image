@@ -28,7 +28,7 @@ services:
       # 网站名称
       SITE_TITLE: ChatGpt Web
       # mongodb 的连接字符串
-      MONGODB_URL: 'mongodb://chatgpt:lsfnzghr@database:27017'
+      MONGODB_URL: 'mongodb://chatgpt:xxxxx@database:27017'
       # 网站是否开启注册
       REGISTER_ENABLED: 'true'
       # 开启注册之后 网站注册允许的邮箱后缀 如果空 则允许任意后缀
@@ -36,7 +36,7 @@ services:
       # 开启注册之后 密码加密的盐
       PASSWORD_MD5_SALT: anysalt
       # 开启注册之后 超级管理邮箱
-      ROOT_USER: 419820659@qq.com
+      ROOT_USER: xxxxxxx@qq.com
       # 开启注册之后 网站域名 不含 / 注册的时候发送验证邮箱使用
       SITE_DOMAIN: http://127.0.0.1:1002
       # 开启注册之后 发送验证邮箱配置
@@ -53,8 +53,8 @@ services:
       AUDIT_API_SECRET:
       AUDIT_TEXT_LABEL:
       FILE_PATH: /Users/liyifan/Documents/picture
-      MJ_PROXY: http://170.106.196.146/discord/
-      OPENAI_API_KEY: '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'
+      MJ_PROXY: http://localhost:8088/discord/
+      OPENAI_API_KEY: 'xxxxxx'
     links:
       - database
 
@@ -78,7 +78,7 @@ services:
     ports:
       - '4321:4321'
     environment:
-      - MONGO_URL=mongodb://chatgpt:lsfnzghr@database:27017
+      - MONGO_URL=mongodb://chatgpt:xxxxxx@database:27017
     links:
       - database
     depends_on:
