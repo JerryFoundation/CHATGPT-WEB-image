@@ -16,7 +16,7 @@ export class ConfigState {
 }
 
 // https://platform.openai.com/docs/models/overview
-export type CHATMODEL = 'gpt-3.5-turbo' | 'gpt-3.5-turbo-0301' | 'gpt-4' | 'gpt-4-0314' | 'gpt-4-32k' | 'gpt-4-32k-0314' | 'ext-davinci-002-render-sha-mobile' | 'gpt-4-mobile' | 'gpt-4-browsing' | 'mid-journey' | 'auto-gpt'
+export type CHATMODEL = 'gpt-3.5-turbo' | 'gpt-3.5-turbo-0301' | 'gpt-4' | 'gpt-4-0314' | 'gpt-4-32k' | 'gpt-4-32k-0314' | 'ext-davinci-002-render-sha-mobile' | 'gpt-4-mobile' | 'gpt-4-browsing' | 'mid-journey' | 'auto-gpt' | 'plugin' | 'gpt-4-turbo-preview' | 'gpt-4-vision-preview' | 'gpt-3.5-turbo-0125'
 
 export type IMAGEMODE = 'tusengtu' | 'tusengwen' | 'wensengtu'
 

@@ -5,6 +5,7 @@ export interface RequestProps {
   uuid: number
   regenerate: boolean
   prompt: string
+  pluginModel?: string
   options?: ChatContext
   systemMessage: string
   temperature?: number

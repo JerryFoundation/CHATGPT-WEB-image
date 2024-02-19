@@ -16,6 +16,7 @@ export interface RequestOptions {
   imageType?: string
   imgOperation?: string
   taskId?: string
+  pluginModel?: string
 }
 
 export interface BalanceResponse {

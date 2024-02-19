@@ -31,6 +31,7 @@ export function fetchChatAPIProcess<T = any>(
     uuid: number
     regenerate?: boolean
     prompt: string
+    pluginModel?: string
     options?: { conversationId?: string; parentMessageId?: string }
     signal?: GenericAbortSignal
     onDownloadProgress?: (progressEvent: AxiosProgressEvent) => void },
@@ -48,6 +49,7 @@ export function fetchChatAPIProcess<T = any>(
     options: params.options,
     imageBase64: params.imageBase64,
     imageType: params.imageType,
+    pluginModel: params.pluginModel,
   }
 
   if (authStore.isChatGPTAPI) {
@@ -107,10 +109,10 @@ export function fetchVerifyAdmin<T>(token: string) {
   })
 }
 
-export function fetchUpdatePlugin<T>(functionName:string,functionSwitch:boolean) {
+export function fetchUpdatePlugin<T>(functionName: string, functionSwitch: boolean) {
   return post<T>({
     url: '/updatePlugin',
-    data: { functionName,functionSwitch },
+    data: { functionName, functionSwitch },
   })
 }
 

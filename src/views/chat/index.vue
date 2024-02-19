@@ -4,7 +4,7 @@ import { computed, defineAsyncComponent, nextTick, onMounted, onUnmounted, ref, 
 import { useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import type { MessageReactive } from 'naive-ui'
-import { NAutoComplete, NButton, NInput, NSelect, NSpace, NSpin, useDialog, useMessage,NModal,NCard,NLayout,NSwitch } from 'naive-ui'
+import { NAutoComplete, NButton, NCard, NInput, NLayout, NModal, NSelect, NSpace, NSpin, NSwitch, useDialog, useMessage } from 'naive-ui'
 import html2canvas from 'html2canvas'
 import { Message } from './components'
 import { useScroll } from './hooks/useScroll'
@@ -13,7 +13,7 @@ import HeaderComponent from './components/Header/index.vue'
 import { HoverButton, SvgIcon } from '@/components/common'
 import { useBasicLayout } from '@/hooks/useBasicLayout'
 import { useAuthStore, useChatStore, usePromptStore, useUserStore } from '@/store'
-import { fetchChatAPIProcess, fetchChatResponseoHistory, fetchChatStopResponding, fetchUpdateUserChatModel,fetchUpdatePlugin,queryUserFunction } from '@/api'
+import { fetchChatAPIProcess, fetchChatResponseoHistory, fetchChatStopResponding, fetchUpdatePlugin, fetchUpdateUserChatModel, queryUserFunction } from '@/api'
 import { t } from '@/locales'
 import { debounce } from '@/utils/functions/debounce'
 import IconPrompt from '@/icons/Prompt.vue'
@@ -57,6 +57,7 @@ const imageType = ref<any>('')
 let imageAction = ''
 let changeTaskId = ''
 let imgResultStatus = ''
+let pluginChatModel = 'gpt-3.5-turbo'
 
 let loadingms: MessageReactive
 let allmsg: MessageReactive
@@ -117,8 +118,6 @@ function compress(base64String: string, w: number, quality: number) {
 async function onConversation() {
   let message = prompt.value
   const image = zipImageUrl.value
-  // eslint-disable-next-line no-console
-  console.log(userStore.userInfo.config.imageMode)
   if (loading.value)
     return
 
@@ -185,6 +184,7 @@ async function onConversation() {
         roomId: +uuid,
         uuid: chatUuid,
         prompt: message,
+        pluginModel: pluginChatModel,
         options,
         signal: controller.signal,
         onDownloadProgress: ({ event }) => {
@@ -310,8 +310,6 @@ async function onRegenerate(index: number) {
 
   const { requestOptions } = dataSources.value[index]
   const imageBase64 = dataSources.value[index].imageBase64
-  // eslint-disable-next-line no-console
-  console.log(requestOptions)
   let responseCount = dataSources.value[index].responseCount || 1
   responseCount++
 
@@ -357,6 +355,7 @@ async function onRegenerate(index: number) {
         uuid: chatUuid || Date.now(),
         regenerate: true,
         prompt: message,
+        pluginModel: pluginChatModel,
         options,
         signal: controller.signal,
         onDownloadProgress: ({ event }) => {
@@ -756,17 +755,23 @@ function reupload() {
 
 const showplugin = ref(false)
 
-function handleSwitchChange(item:any){
+function handleSwitchChange(item: any) {
+  const openSwitches = PluginList.value.filter(item => item.switch) // 筛选出开关打开的项
 
-const openSwitches = PluginList.value.filter(item => item.switch); // 筛选出开关打开的项
-
-if (openSwitches.length > 3) {
+  if (openSwitches.length > 3) {
   // 执行其他操作...
-  alert('开关打开个数已超过3个')
-  item.switch = false
-}else{
-  fetchUpdatePlugin(item.value,item.switch)
+    alert('开关打开个数已超过3个')
+    item.switch = false
+  }
+  else {
+    fetchUpdatePlugin(item.value, item.switch)
+  }
 }
+
+function handlePluginModelChange(model: ModelList) {
+  // eslint-disable-next-line no-console
+  console.log = (model.value)
+  pluginChatModel = model
 }
 
 const dynamicPluginList = computed(() => {
@@ -776,13 +781,13 @@ const dynamicPluginList = computed(() => {
       // 遍历 PluginList
       PluginList.value.forEach((item) => {
         // 判断 functions 中是否存在与当前 item.name 相同的名称
-        const found = functions.some((func) => func === item.value)
+        const found = functions.includes(item.value)
         console.log(found)
-        if(found){
+        if (found)
           item.switch = true
-        }else{
+
+        else
           item.switch = false
-        }
       })
     })
     // 这里返回 PluginList.value（可能是未更新的值）
@@ -794,6 +799,11 @@ const dynamicPluginList = computed(() => {
 })
 
 const PluginList = ref([
+  {
+    value: 'getBilibiliVideoInfo',
+    name: '总结b站视频插件',
+    switch: false,
+  },
   {
     value: 'baiduSearch',
     name: '百度搜索插件',
@@ -833,6 +843,30 @@ const PluginList = ref([
     value: 'createImage',
     name: '生成图片',
     switch: false,
+  },
+  {
+    value: 'analyzeLink',
+    name: '读取链接',
+    switch: false,
+  },
+])
+
+const ModelList = ref([
+  {
+    value: 'gpt-3.5-turbo-16k',
+    label: 'gpt-3.5-turbo-16k',
+  },
+  {
+    value: 'gpt-3.5-turbo',
+    label: 'gpt-3.5-turbo',
+  },
+  {
+    value: 'gpt-4-0125-preview',
+    label: 'gpt-4-0125-preview',
+  },
+  {
+    value: 'gpt-4-turbo-preview',
+    label: 'gpt-4-turbo-preview',
   },
 ])
 </script>
@@ -933,9 +967,17 @@ const PluginList = ref([
               :disabled="!!authStore.session?.auth && !authStore.token"
               @update-value="(val) => handleSyncImageModel(val)"
             />
+            <NSelect
+              v-if="(userStore?.userInfo?.config?.chatModel === 'plugin' || userStore?.userInfo?.config?.chatModel === 'auto-gpt')"
+              style="width: 250px"
+              :value="pluginChatModel.value"
+              :options="ModelList"
+              :disabled="!!authStore.session?.auth && !authStore.token"
+              @update-value="(val) => handlePluginModelChange(val)"
+            />
             <div>
               <el-button
-                v-if="userStore.userInfo.config.chatModel === 'mid-journey' && userStore.userInfo.config.imageMode !== 'wensengtu'"
+                v-if="(userStore.userInfo.config.chatModel === 'mid-journey' && userStore.userInfo.config.imageMode !== 'wensengtu') || (userStore.userInfo.config.chatModel === 'gpt-4-vision-preview')"
                 type="primary"
                 size="mini"
                 @click="reupload"
@@ -943,9 +985,9 @@ const PluginList = ref([
                 <i class="el-icon-upload el-icon--right"> 上传图片 </i>
               </el-button>
             </div>
-            <NButton block @click="showplugin = true"  v-if="userStore.userInfo.config.chatModel === 'auto-gpt'" style="width: 200px">
+            <NButton v-if="userStore.userInfo.config.chatModel === 'plugin'" block style="width: 200px" @click="showplugin = true">
               {{ $t('store.plugin') }}
-          </NButton>
+            </NButton>
           </div>
           <div class="flex items-center justify-between space-x-2">
             <NAutoComplete v-model:value="prompt" :options="searchOptions" :render-label="renderOption">
@@ -990,7 +1032,7 @@ const PluginList = ref([
         <NLayout position="absolute" content-style="padding: 0px;">
           <NCard v-for="(item) in dynamicPluginList" :title="item.name">
             {{ item.name }}
-            <NSwitch v-model:value="item.switch" @update:value="handleSwitchChange(item)"/>
+            <NSwitch v-model:value="item.switch" @update:value="handleSwitchChange(item)" />
           </NCard>
         </NLayout>
       </div>

@@ -55,7 +55,7 @@ export class UserConfig {
 }
 
 // https://platform.openai.com/docs/models/overview
-export type CHATMODEL = 'gpt-3.5-turbo' | 'gpt-3.5-turbo-0301' | 'gpt-4' | 'gpt-4-0314' | 'gpt-4-32k' | 'gpt-4-32k-0314' | 'ext-davinci-002-render-sha-mobile' | 'gpt-4-mobile' | 'gpt-4-browsing' | 'mid-journey' | 'gpt-3.5-turbo-0613' | 'gpt-3.5-turbo-16k' | 'auto-gpt'
+export type CHATMODEL = 'gpt-3.5-turbo' | 'gpt-3.5-turbo-0301' | 'gpt-4' | 'gpt-4-0314' | 'gpt-4-32k' | 'gpt-4-32k-0314' | 'ext-davinci-002-render-sha-mobile' | 'gpt-4-mobile' | 'gpt-4-browsing' | 'mid-journey' | 'gpt-3.5-turbo-0613' | 'gpt-3.5-turbo-16k' | 'auto-gpt' | 'plugin' | 'gpt-4-turbo-preview' | 'gpt-4-vision-preview' | 'gpt-3.5-turbo-0125'
 
 export const CHATMODELS: CHATMODEL[] = [
   'gpt-3.5-turbo',
@@ -71,6 +71,10 @@ export const CHATMODELS: CHATMODEL[] = [
   'gpt-3.5-turbo-0613',
   'gpt-3.5-turbo-16k',
   'auto-gpt',
+  'plugin',
+  'gpt-4-turbo-preview',
+  'gpt-4-vision-preview',
+  'gpt-3.5-turbo-0125',
 ]
 
 export const chatModelOptions = [
@@ -87,6 +91,10 @@ export const chatModelOptions = [
   'gpt-3.5-turbo-0613',
   'gpt-3.5-turbo-16k',
   'auto-gpt',
+  'plugin',
+  'gpt-4-turbo-preview',
+  'gpt-4-vision-preview',
+  'gpt-3.5-turbo-0125',
 ].map((model: string) => {
   let label = model
   if (model === 'text-davinci-002-render-sha-mobile')

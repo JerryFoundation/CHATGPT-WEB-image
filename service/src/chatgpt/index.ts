@@ -279,6 +279,7 @@ async function chatReplyProcess(options: RequestOptions) {
   const imgOperation = options.imgOperation
   const changeTaskId = options.taskId
   const room = options.room
+  const pluginModel = options.pluginModel
   if (key == null || key === undefined)
     throw new Error('没有可用的配置。请再试一次 | No available configuration. Please try again.')
 
@@ -299,9 +300,12 @@ async function chatReplyProcess(options: RequestOptions) {
       const response = await draw({ userId, message, imageBase64, imageType, process, transMsg, imgOperation, changeTaskId })
       return sendResponse({ type: 'Success', data: response, taskId: response ? response.taskId : null, imgResultStatus: response ? response.imgResultStatus : null, imageAction: response ? response.imgOperation : null })
     }
-    if (model === 'auto-gpt') {
+    if (model === 'plugin' || model === 'auto-gpt' || model === 'gpt-4-vision-preview') {
       const functions = await getFunctionConfigs(userId)
       const array = []
+      let auto = false
+      if (model === 'auto-gpt')
+        auto = true
       const chatInfo = await getChatByUserId(userId, room.roomId)
       for (let i = 0; i < chatInfo.length; i++) {
         const chat = chatInfo[i] as ChatInfo
@@ -310,7 +314,10 @@ async function chatReplyProcess(options: RequestOptions) {
         if (chat.response)
           array.push({ role: 'assistant', content: chat.response || '无结果' })
       }
-      const result = await sendMessage(message, functions, array, { message, lastContext, process, systemMessage, temperature, top_p } as RequestOptions)
+      let chatModel = pluginModel
+      if (model === 'gpt-4-vision-preview')
+        chatModel = model
+      const result = await sendMessage(message, functions, array, auto, imageBase64, chatModel, { message, lastContext, process, systemMessage, temperature, top_p } as RequestOptions)
       // const result = await sendMessage(message, functions, array, { message, lastContext, process, systemMessage, temperature, top_p } as RequestOptions)
       return result
     }
@@ -433,7 +440,7 @@ async function fetchAccessTokenExpiredTime() {
 let cachedBalance: number | undefined
 let cacheExpiration = 0
 
-async function sendMessage(text, functions, array, options?: RequestOptions) {
+async function sendMessage(text, functions, array, auto, imageBase64, chatModel, options?: RequestOptions) {
   const config = await getCacheConfig()
   const controller = new AbortController()
   let responseText = ''
@@ -444,6 +451,8 @@ async function sendMessage(text, functions, array, options?: RequestOptions) {
     functionNameList: functions,
     messages: array,
     token: config.autoGptToken,
+    imageUrl: imageBase64,
+    model: chatModel,
   }
   const chatPayload = {
     method: 'POST',
@@ -465,15 +474,21 @@ async function sendMessage(text, functions, array, options?: RequestOptions) {
     taskId: null,
   }
   const url = config.autoGptUrl
+  let auto_gpt_url = '/ai/chatStream'
+  if (auto)
+    auto_gpt_url = '/ai/auto/chatStream'
   return new Promise((resolve, reject) => {
-    axios.post(`${url}/ai/chatStream`, requestPayload, { responseType: 'stream' })
+    axios.post(`${url}${auto_gpt_url}`, requestPayload, { responseType: 'stream' })
       .then((response) => {
         const reader = response.data
 
         // 每当有新的数据块可用，触发 'data' 事件
         reader.on('data', (chunk) => {
-          if (chunk.toString().startsWith('{')) {
-            const obj = JSON.parse(chunk.toString())
+          if (chunk.toString().startsWith('{') && chunk.toString().endsWith('}')) {
+            const str = chunk.toString()
+            // eslint-disable-next-line no-console
+            console.log(str)
+            const obj = JSON.parse(str)
             const content = obj.choices[0].delta.content
             if (content) {
               responseText += content

@@ -418,7 +418,7 @@ router.post('/chat', auth, async (req, res) => {
 router.post('/chat-process', [auth, limiter], async (req, res) => {
   res.setHeader('Content-type', 'application/octet-stream')
 
-  let { roomId, uuid, regenerate, prompt, options = {}, systemMessage, temperature, top_p, imageBase64, imageType, imgOperation, taskId } = req.body as RequestProps
+  let { roomId, uuid, regenerate, prompt, pluginModel, options = {}, systemMessage, temperature, top_p, imageBase64, imageType, imgOperation, taskId } = req.body as RequestProps
   const userId = req.headers.userId as string
   const room = await getChatRoom(userId, roomId)
   if (room == null)
@@ -480,6 +480,7 @@ router.post('/chat-process', [auth, limiter], async (req, res) => {
       imageType,
       imgOperation,
       taskId,
+      pluginModel,
     })
     // return the whole response including usage
     res.write(`\n${JSON.stringify(result.data)}`)
