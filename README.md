@@ -7,7 +7,7 @@
 </br>
 
 ## 说明
-> **此项目 Fork 自 [Chanzhaoyu/chatgpt-web](https://github.com/Chanzhaoyu/chatgpt-web), 新增了部分特色功能:**
+> **此项目 Fork 自 [Chanzhaoyu/chatgpt-web](https://github.com/chatgpt-web-dev/chatgpt-web), 新增了部分特色功能:**
 
 [✓] 注册&登录&重置密码
 
@@ -22,11 +22,19 @@
 [✓] 用户管理
 
 [✓] 多 Key 随机
+
+[✓] ai画图
+
+[✓] 插件商店（联网，画图，发邮件等等）
+
+[✓] 图片识别
+
 </br>
 
 ## 截图
 > 声明：此项目只发布于 Github，基于 MIT 协议，免费且作为开源学习使用。并且不会有任何形式的卖号、付费服务、讨论群、讨论组等行为。谨防受骗。
 
+<img width="790" alt="image" src="https://github.com/liyf1/CHATGPT-WEB/assets/49024327/79c01b15-8f57-4735-8b5b-ef7e77c5dc86">
 ![cover3](./docs/login.jpg)
 ![cover](./docs/c1.png)
 ![cover2](./docs/c2.png)
@@ -116,6 +124,10 @@
 [✓] 界面多语言
 
 [✓] 界面主题
+
+[✗] 语音交互
+
+[✗] code interpreter接入
 
 [✗] More...
 
