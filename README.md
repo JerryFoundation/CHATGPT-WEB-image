@@ -247,7 +247,7 @@ version: '3'
 
 services:
   app:
-    image: kerwin1202/chatgpt-web # 总是使用latest,更新时重新pull该tag镜像即可
+    image: publica419820659/chatgpt-web-plus # 总是使用latest,更新时重新pull该tag镜像即可
     container_name: chatgptweb
     restart: unless-stopped
     ports:
@@ -305,6 +305,12 @@ services:
       AUDIT_API_KEY: xxx
       AUDIT_API_SECRET: xxx
       AUDIT_TEXT_LABEL: xxx
+			MJ_CDN_PROXY: https://cdn.discordapp.com/discord/
+      MJ_API_PROXY: http://xxxxxxxx:8080
+      MAX_MODEL_TOKENS: 4092
+      MAX_RESPONSE_TOKENS: 1500
+      AUTO_GPT_URL: http://xxxxxx:15600
+      AUTO_GPT_TOKEN: xxxxxx
     links:
       - database
 
@@ -323,6 +329,16 @@ services:
       MONGO_INITDB_ROOT_PASSWORD: xxxx
       MONGO_INITDB_DATABASE: chatgpt
 
+	midjourney-proxy:
+    image: novicezk/midjourney-proxy:2.5.5
+    container_name: midjourney-proxy
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - mj.discord.guild-id=xxxxxx
+      - mj.discord.channel-id=xxxx
+      - mj.discord.user-token=xxxxxxx
 volumes:
   mongodb: {}
 ```
